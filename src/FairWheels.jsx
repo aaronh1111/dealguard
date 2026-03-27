@@ -131,17 +131,35 @@ function NavBar({ title, sub, onBack, backLabel, right, tabs, activeTab, onTab }
 }
 
 function BottomNav({ active, onHome, onAbout, onHow }) {
+  const NavIcon = ({ id }) => {
+    const color = active === id ? BLUE : "#9ca3af";
+    if (id === "home") return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    );
+    if (id === "how") return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    );
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+    );
+  };
   const items = [
-    { id: "home", label: "Analyze", icon: "◎" },
-    { id: "how", label: "How it works", icon: "≡" },
-    { id: "about", label: "About", icon: "◉" },
+    { id: "home", label: "Analyze", fn: onHome },
+    { id: "how", label: "How it works", fn: onHow },
+    { id: "about", label: "About", fn: onAbout },
   ];
   return (
     <div style={{ position: "sticky", bottom: 0, background: "#fff", borderTop: "1px solid #e5e7eb", display: "flex", zIndex: 50 }}>
-      {items.map(({ id, label, icon }) => (
-        <button key={id} onClick={() => { if (id === "home") onHome(); else if (id === "about") onAbout(); else onHow(); }}
-          style={{ flex: 1, padding: "10px 4px 12px", background: "none", border: "none", cursor: "pointer", fontFamily: FONT, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-          <span style={{ fontSize: 16, color: active === id ? BLUE : "#9ca3af" }}>{icon}</span>
+      {items.map(({ id, label, fn }) => (
+        <button key={id} onClick={fn}
+          style={{ flex: 1, padding: "10px 4px 12px", background: "none", border: "none", cursor: "pointer", fontFamily: FONT, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <NavIcon id={id} />
           <span style={{ fontSize: 10, fontWeight: 700, color: active === id ? BLUE : "#9ca3af" }}>{label}</span>
         </button>
       ))}
@@ -215,7 +233,7 @@ function Field({ label, prefix, suffix, id, value, onChange, placeholder, error,
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
         <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: FONT }}>{label}</label>
-        {hint && <span style={{ fontSize: 10, color: "#9ca3af", fontFamily: FONT }}>{hint}</span>}
+        {hint && hint.length > 0 && <span style={{ fontSize: 10, color: "#9ca3af", fontFamily: FONT, whiteSpace: "nowrap" }}>{hint}</span>}
       </div>
       <div style={{ display: "flex", alignItems: "center", border: `2px solid ${error ? "#fca5a5" : focused ? BLUE : "#e5e7eb"}`, borderRadius: 10, background: error ? "#fef2f2" : focused ? "#f0f7ff" : "#fff", transition: "all 0.15s" }}>
         {prefix && <span style={{ paddingLeft: 12, color: "#9ca3af", fontSize: 14, fontFamily: MONO, flexShrink: 0 }}>{prefix}</span>}
@@ -264,7 +282,7 @@ function UpgradeModal({ onClose, onSuccess }) {
       <div style={{ width: 40, height: 4, background: "#e5e7eb", borderRadius: 99, margin: "0 auto 20px" }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "#111827", fontFamily: FONT }}>DealGuard Pro</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#111827", fontFamily: FONT }}>FairWheels Pro</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 4 }}>
             <span style={{ fontSize: 26, fontWeight: 800, color: NAVY, fontFamily: MONO }}>$9.99</span>
             <span style={{ fontSize: 13, color: "#9ca3af" }}>/ month after trial</span>
@@ -381,7 +399,7 @@ function CompareView({ history, onBack }) {
 function AboutView({ onBack }) {
   return (
     <div style={{ fontFamily: FONT, background: "#f8fafc", minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      <NavBar title="About DealGuard" sub="Built for car buyers, not dealerships" />
+      <NavBar title="About FairWheels" sub="Built for car buyers, not dealerships" />
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 14px", width: "100%", boxSizing: "border-box", flex: 1 }}>
 
         {/* Mission */}
@@ -392,7 +410,7 @@ function AboutView({ onBack }) {
             Car dealerships have teams of finance managers trained to maximize profit from every loan. Most buyers walk in alone, with no tools and no data.
           </p>
           <p style={{ margin: "10px 0 0", fontSize: 13, color: "#374151", lineHeight: 1.7 }}>
-            DealGuard levels the playing field. We analyze your deal using the same financial formulas lenders use, score it against real benchmarks, and give you the exact words to negotiate a better rate.
+            FairWheels levels the playing field. We analyze your deal using the same financial formulas lenders use, score it against real benchmarks, and give you the exact words to negotiate a better rate.
           </p>
         </Card>
 
@@ -401,7 +419,7 @@ function AboutView({ onBack }) {
           <div style={{ fontSize: 22, marginBottom: 10 }}>👋</div>
           <div style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Who we are</div>
           <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.7 }}>
-            DealGuard was built by a small team frustrated by overpaying on car loans. We're not affiliated with any dealership, lender, or auto group. We have no financial incentive to favor any deal — our only job is to give you an honest analysis.
+            FairWheels was built by a small team frustrated by overpaying on car loans. We're not affiliated with any dealership, lender, or auto group. We have no financial incentive to favor any deal — our only job is to give you an honest analysis.
           </p>
         </Card>
 
@@ -417,7 +435,7 @@ function AboutView({ onBack }) {
         </Card>
 
         <div style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", lineHeight: 1.6, padding: "4px 0 20px" }}>
-          DealGuard provides educational financial analysis only. It is not a substitute for licensed financial or legal advice. Always verify rates and terms with your lender before signing.
+          FairWheels provides educational financial analysis only. It is not a substitute for licensed financial or legal advice. Always verify rates and terms with your lender before signing.
         </div>
       </div>
     </div>
@@ -462,7 +480,7 @@ function HowItWorksView({ onBack }) {
         <Card style={{ padding: "16px 18px", marginBottom: 16, background: "#eff6ff", border: "1px solid #bfdbfe" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#1e40af", marginBottom: 6 }}>Transparent by design</div>
           <p style={{ margin: 0, fontSize: 12, color: "#1d4ed8", lineHeight: 1.6 }}>
-            Every number DealGuard shows you comes from standard financial formulas — the same math your bank uses. Nothing is proprietary or hidden. Tap any question below to see exactly how we calculate it.
+            Every number FairWheels shows you comes from standard financial formulas — the same math your bank uses. Nothing is proprietary or hidden. Tap any question below to see exactly how we calculate it.
           </p>
         </Card>
 
@@ -485,7 +503,7 @@ function HowItWorksView({ onBack }) {
         ))}
 
         <div style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", lineHeight: 1.6, padding: "12px 0 20px" }}>
-          DealGuard provides educational financial analysis only. Not a substitute for licensed financial advice.
+          FairWheels provides educational financial analysis only. Not a substitute for licensed financial advice.
         </div>
       </div>
     </div>
@@ -493,7 +511,7 @@ function HowItWorksView({ onBack }) {
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
-export default function DealGuard() {
+export default function FairWheels() {
   const [form, setForm] = useState({ price: "", fees: "", apr: "", term: "" });
   const [errors, setErrors] = useState({});
   const [results, setResults] = useState(null);
@@ -551,7 +569,7 @@ export default function DealGuard() {
   if (view === "home") return (
     <div style={base}>
       <NavBar
-        title="DealGuard"
+        title="FairWheels"
         sub="Know if your car deal is fair"
         right={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -589,21 +607,21 @@ export default function DealGuard() {
         )}
 
         {/* Form */}
-        <Card style={{ padding: "18px 16px", marginBottom: 14 }}>
+        <Card style={{ padding: "16px 14px", marginBottom: 14 }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: "#111827", marginBottom: 14 }}>Enter deal details</div>
           <Field label="Vehicle price" prefix="$" id="price" value={form.price}
-            hint="The full purchase price" placeholder="35,000"
+            hint="Full purchase price" placeholder="35,000"
             onChange={e => setForm({ ...form, price: e.target.value })} error={errors.price} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: "0 10px" }}>
             <Field label="Dealer fees" prefix="$" id="fees" value={form.fees}
-              hint="Doc fees, add-ons" placeholder="1,200"
+              hint="" placeholder="1,200"
               onChange={e => setForm({ ...form, fees: e.target.value })} />
             <Field label="APR" suffix="%" id="apr" value={form.apr}
-              hint="Annual interest rate" placeholder="6.9"
+              hint="" placeholder="6.9"
               onChange={e => setForm({ ...form, apr: e.target.value })} error={errors.apr} />
           </div>
           <Field label="Loan term" suffix="months" id="term" value={form.term}
-            hint="Typically 36–72 months" placeholder="60"
+            hint="36–72 months" placeholder="60"
             onChange={e => setForm({ ...form, term: e.target.value })} error={errors.term} />
 
           <button onClick={analyze} style={{ width: "100%", padding: 14, background: NAVY, color: "#fff", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FONT, marginTop: 4, letterSpacing: "-0.01em" }}>
