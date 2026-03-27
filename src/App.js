@@ -1,7 +1,7 @@
-import DealGuard from './DealGuardPro (1)';
+import FairWheels from './FairWheels';
 
 function App() {
-  return <DealGuard />;
+  return <FairWheels />;
 }
 
 export default App;
