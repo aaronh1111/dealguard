@@ -565,14 +565,14 @@ function SignInScreen({ onSignIn, onBack }) {
     setSuccess("");
     try {
       if (tab === "signup") {
-        const { data, error: signUpError } = await supabase.auth.signUp({ email: email.trim(), password });
+        const { error: signUpError } = await supabase.auth.signUp({ email: email.trim(), password });
         if (signUpError) { setError(signUpError.message); setLoading(false); return; }
         // Also create user record in our users table
         await supabase.from("users").insert([{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }]);
         setSuccess("Account created! You are now signed in.");
         setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }), 1000);
       } else {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (signInError) { setError("Incorrect email or password. Try again."); setLoading(false); return; }
         // Load user data
         const { data: userData } = await supabase.from("users").select("email, analyze_count, is_pro").eq("email", email.trim().toLowerCase()).maybeSingle();
