@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://hqykeuzclhhsybqwxwkv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_b6_KoZK9ljnzm-e_klD5Xw_pHzSRZbV";
