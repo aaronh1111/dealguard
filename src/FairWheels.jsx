@@ -743,6 +743,12 @@ function SignInScreen({ onSignIn, onBack }) {
             <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>✓ {success}</div>
           ) : null}
 
+          {error && (
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#dc2626", fontFamily: FONT, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ flexShrink: 0 }}>⚠</span> {error}
+            </div>
+          )}
+
           {success !== "CHECK_EMAIL" && (
           <button onClick={handleSubmit} disabled={loading}
             style={{ width: "100%", padding: 14, background: loading ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", fontFamily: FONT }}>
