@@ -1,4 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = "https://hqykeuzclhhsybqwxwkv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_b6_KoZK9ljnzm-e_klD5Xw_pHzSRZbV";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const FONT = "'DM Sans', 'Helvetica Neue', Arial, sans-serif";
 const MONO = "'DM Mono', 'Courier New', monospace";
@@ -6,6 +11,7 @@ const NAVY = "#0A2540";
 const BLUE = "#1E6FD9";
 const FREE_LIMIT = 2;
 const STRIPE_LINK = "https://buy.stripe.com/28EbJ13Pfh1u5IW99Casg01";
+
 const parse = (v) => parseFloat(v) || 0;
 const fmt = (n) => "$" + Math.round(n).toLocaleString("en-US");
 const fmtDec = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -283,7 +289,7 @@ function UpgradeModal({ onClose, onSuccess }) {
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: "#111827", fontFamily: FONT }}>FairWheels Pro</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 4 }}>
-            <span style={{ fontSize: 26, fontWeight: 800, color: NAVY, fontFamily: MONO }}>$5.99</span>
+            <span style={{ fontSize: 26, fontWeight: 800, color: NAVY, fontFamily: MONO }}>$9.99</span>
             <span style={{ fontSize: 13, color: "#9ca3af" }}>/ month after trial</span>
           </div>
         </div>
@@ -510,6 +516,87 @@ function HowItWorksView({ onBack }) {
 }
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
+// ── Email Sign-In Screen ─────────────────────────────────────────────────────
+function SignInScreen({ onSignIn }) {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [focused, setFocused] = useState(false);
+
+  const handleSignIn = async () => {
+    if (!email || !email.includes("@")) { setError("Enter a valid email address"); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const { data, error: sbError } = await supabase
+        .from("users")
+        .select("email, analyze_count, is_pro")
+        .eq("email", email.toLowerCase().trim())
+        .single();
+
+      if (sbError && sbError.code === "PGRST116") {
+        const { error: insertError } = await supabase
+          .from("users")
+          .insert({ email: email.toLowerCase().trim(), analyze_count: 0, is_pro: false });
+        if (insertError) throw insertError;
+        onSignIn({ email: email.toLowerCase().trim(), analyze_count: 0, is_pro: false });
+      } else if (sbError) {
+        throw sbError;
+      } else {
+        onSignIn(data);
+      }
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ fontFamily: FONT, background: "#f8fafc", minHeight: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{ background: NAVY, padding: "24px 20px 32px" }}>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>FairWheels</div>
+          <div style={{ fontSize: 13, color: "#93c5fd", marginTop: 4 }}>Know if your car deal is fair</div>
+        </div>
+      </div>
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "32px 20px", width: "100%", boxSizing: "border-box", flex: 1 }}>
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "28px 22px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#111827", marginBottom: 6 }}>Sign in to continue</div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>
+            Enter your email to save your analyses and track your free usage. No password needed.
+          </div>
+          <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.07em", display: "block", marginBottom: 6 }}>Email address</label>
+          <div style={{ display: "flex", alignItems: "center", border: `2px solid ${error ? "#fca5a5" : focused ? BLUE : "#e5e7eb"}`, borderRadius: 10, background: focused ? "#f0f7ff" : "#fff", transition: "all 0.15s", marginBottom: 8 }}>
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError(""); }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={e => e.key === "Enter" && handleSignIn()}
+              placeholder="you@example.com"
+              style={{ flex: 1, border: "none", outline: "none", padding: "13px 14px", fontSize: 15, fontFamily: FONT, background: "transparent", color: "#111827" }}
+            />
+          </div>
+          {error && <div style={{ color: "#dc2626", fontSize: 12, marginBottom: 12, fontFamily: FONT }}>⚠ {error}</div>}
+          <button
+            onClick={handleSignIn}
+            disabled={loading}
+            style={{ width: "100%", padding: 14, background: loading ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", fontFamily: FONT, marginTop: 4 }}>
+            {loading ? "Signing in..." : "Continue →"}
+          </button>
+        </div>
+        <div style={{ marginTop: 20, background: "#eff6ff", borderRadius: 12, border: "1px solid #bfdbfe", padding: "14px 16px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1d4ed8", marginBottom: 6 }}>Why do we need your email?</div>
+          <div style={{ fontSize: 12, color: "#1e40af", lineHeight: 1.6 }}>
+            Your email lets us save your deal history and track your 2 free analyses. We will never spam you or sell your data.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FairWheels() {
   const [form, setForm] = useState({ price: "", fees: "", apr: "", term: "" });
   const [errors, setErrors] = useState({});
@@ -521,9 +608,30 @@ export default function FairWheels() {
   const [isPro, setIsPro] = useState(false);
   const [analyzeCount, setAnalyzeCount] = useState(0);
   const [activeTab, setActiveTab] = useState("script");
+  const [user, setUser] = useState(null);
+  const [pendingAnalyze, setPendingAnalyze] = useState(false);
 
   const go = (v) => setView(v);
   const remaining = Math.max(FREE_LIMIT - analyzeCount, 0);
+
+  useEffect(() => {
+    if (user) {
+      setAnalyzeCount(user.analyze_count || 0);
+      setIsPro(user.is_pro || false);
+    }
+  }, [user]);
+
+  const handleSignIn = (userData) => {
+    setUser(userData);
+    if (pendingAnalyze) {
+      setPendingAnalyze(false);
+      doAnalyze(userData);
+    }
+  };
+
+  const updateCount = async (newCount, email) => {
+    await supabase.from("users").update({ analyze_count: newCount }).eq("email", email);
+  };
 
   const validate = () => {
     const e = {};
@@ -534,15 +642,24 @@ export default function FairWheels() {
     return Object.keys(e).length === 0;
   };
 
-  const analyze = () => {
-    if (!validate()) return;
-    if (!isPro && analyzeCount >= FREE_LIMIT) { setShowUpgrade(true); return; }
+  const doAnalyze = (currentUser) => {
+    const u = currentUser || user;
+    const newCount = (u.analyze_count || 0) + 1;
     const deal = calcDeal(parse(form.price), parse(form.fees), parse(form.apr), parse(form.term));
     setResults(deal);
     setHistory(h => [deal, ...h]);
-    setAnalyzeCount(c => c + 1);
+    setAnalyzeCount(newCount);
+    setUser(prev => ({ ...prev, analyze_count: newCount }));
+    updateCount(newCount, u.email);
     setActiveTab("script");
     go("result");
+  };
+
+  const analyze = () => {
+    if (!validate()) return;
+    if (!user) { setPendingAnalyze(true); go("signin"); return; }
+    if (!isPro && analyzeCount >= FREE_LIMIT) { setShowUpgrade(true); return; }
+    doAnalyze();
   };
 
   const handleUpgradeSuccess = () => { setIsPro(true); setShowUpgrade(false); };
@@ -550,6 +667,7 @@ export default function FairWheels() {
   const base = { fontFamily: FONT, background: "#f8fafc", minHeight: "100%", display: "flex", flexDirection: "column" };
   const body = { maxWidth: 480, margin: "0 auto", padding: "16px 14px", width: "100%", boxSizing: "border-box", flex: 1 };
 
+  if (view === "signin") return <SignInScreen onSignIn={handleSignIn} />;
   if (view === "compare") return <CompareView history={history} onBack={() => go("history")} />;
   if (view === "about") return (
     <div style={base}>
