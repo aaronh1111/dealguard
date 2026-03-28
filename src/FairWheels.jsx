@@ -566,21 +566,45 @@ function SignInScreen({ onSignIn, onBack }) {
     try {
       if (tab === "signup") {
         const { error: signUpError } = await supabase.auth.signUp({ email: email.trim(), password });
-        if (signUpError) { setError(signUpError.message); setLoading(false); return; }
-        // Also create user record in our users table
-        await supabase.from("users").insert([{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }]);
-        setSuccess("Account created! You are now signed in.");
-        setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }), 1000);
+        if (signUpError) {
+          if (signUpError.message.includes("already registered")) {
+            setError("This email already has an account. Sign in instead.");
+          } else {
+            setError(signUpError.message);
+          }
+          setLoading(false);
+          return;
+        }
+        // Create user record — ignore duplicate errors
+        await supabase.from("users").upsert(
+          [{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }],
+          { onConflict: "email", ignoreDuplicates: true }
+        );
+        setSuccess("Account created! Signing you in...");
+        setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }), 800);
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-        if (signInError) { setError("Incorrect email or password. Try again."); setLoading(false); return; }
-        // Load user data
-        const { data: userData } = await supabase.from("users").select("email, analyze_count, is_pro").eq("email", email.trim().toLowerCase()).maybeSingle();
-        if (!userData) {
-          await supabase.from("users").insert([{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }]);
-          onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false });
-        } else {
+        if (signInError) {
+          setError("Incorrect email or password. Please try again.");
+          setLoading(false);
+          return;
+        }
+        // Load existing user data from our table
+        const { data: userData, error: fetchError } = await supabase
+          .from("users")
+          .select("email, analyze_count, is_pro")
+          .eq("email", email.trim().toLowerCase())
+          .maybeSingle();
+
+        if (userData) {
           onSignIn(userData);
+        } else {
+          // User exists in auth but not in our table — create their record
+          await supabase.from("users").upsert(
+            [{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }],
+            { onConflict: "email", ignoreDuplicates: true }
+          );
+          onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false });
         }
       }
     } catch (err) {
@@ -676,6 +700,24 @@ export default function FairWheels() {
 
   const go = (v) => setView(v);
   const remaining = Math.max(FREE_LIMIT - analyzeCount, 0);
+
+  // Restore session on app load
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user?.email) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("email, analyze_count, is_pro")
+          .eq("email", session.user.email.toLowerCase())
+          .maybeSingle();
+        if (userData) {
+          setUser(userData);
+          setAnalyzeCount(userData.analyze_count || 0);
+          setIsPro(userData.is_pro || false);
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (user) {
