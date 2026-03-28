@@ -5,7 +5,8 @@ const MONO = "'DM Mono', 'Courier New', monospace";
 const NAVY = "#0A2540";
 const BLUE = "#1E6FD9";
 const FREE_LIMIT = 2;
-const STRIPE_LINK = "https://buy.stripe.com/xxxxxxxx";
+const STRIPE_LINK = "https://buy.stripe.com/https://buy.stripe.com/28EbJ13Pfh1u5IW99Casg01";
+
 const parse = (v) => parseFloat(v) || 0;
 const fmt = (n) => "$" + Math.round(n).toLocaleString("en-US");
 const fmtDec = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -283,7 +284,7 @@ function UpgradeModal({ onClose, onSuccess }) {
         <div>
           <div style={{ fontSize: 20, fontWeight: 800, color: "#111827", fontFamily: FONT }}>FairWheels Pro</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 4 }}>
-            <span style={{ fontSize: 26, fontWeight: 800, color: NAVY, fontFamily: MONO }}>$9.99</span>
+            <span style={{ fontSize: 26, fontWeight: 800, color: NAVY, fontFamily: MONO }}>$5.99</span>
             <span style={{ fontSize: 13, color: "#9ca3af" }}>/ month after trial</span>
           </div>
         </div>
