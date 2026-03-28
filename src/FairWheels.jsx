@@ -517,47 +517,71 @@ function HowItWorksView({ onBack }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 // ── Email Sign-In Screen ─────────────────────────────────────────────────────
+function InputField({ label, type, value, onChange, placeholder, error, showToggle, onToggle, showPw }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.07em", display: "block", marginBottom: 6, fontFamily: FONT }}>{label}</label>
+      <div style={{ display: "flex", alignItems: "center", border: `2px solid ${error ? "#fca5a5" : focused ? BLUE : "#e5e7eb"}`, borderRadius: 10, background: error ? "#fef2f2" : focused ? "#f0f7ff" : "#fff", transition: "all 0.15s" }}>
+        <input
+          type={showToggle ? (showPw ? "text" : "password") : type}
+          value={value}
+          onChange={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          style={{ flex: 1, border: "none", outline: "none", padding: "13px 14px", fontSize: 15, fontFamily: FONT, background: "transparent", color: "#111827" }}
+        />
+        {showToggle && (
+          <button onClick={onToggle} style={{ background: "none", border: "none", paddingRight: 14, cursor: "pointer", color: "#9ca3af", fontSize: 12, fontFamily: FONT }}>
+            {showPw ? "Hide" : "Show"}
+          </button>
+        )}
+      </div>
+      {error && <div style={{ color: "#dc2626", fontSize: 11, marginTop: 4, fontFamily: FONT }}>⚠ {error}</div>}
+    </div>
+  );
+}
+
 function SignInScreen({ onSignIn, onBack }) {
+  const [tab, setTab] = useState("signin");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [focused, setFocused] = useState(false);
-  const [tab, setTab] = useState("signin");
+  const [success, setSuccess] = useState("");
+
+  const validate = () => {
+    if (!email || !email.includes("@")) { setError("Enter a valid email address"); return false; }
+    if (!password || password.length < 6) { setError("Password must be at least 6 characters"); return false; }
+    return true;
+  };
 
   const handleSubmit = async () => {
-    const cleaned = email.toLowerCase().trim();
-    if (!cleaned || !cleaned.includes("@")) { setError("Enter a valid email address"); return; }
+    if (!validate()) return;
     setLoading(true);
     setError("");
+    setSuccess("");
     try {
-      const { data: existing } = await supabase
-        .from("users")
-        .select("email, analyze_count, is_pro")
-        .eq("email", cleaned)
-        .maybeSingle();
-
       if (tab === "signup") {
-        if (existing) {
-          setError("This email already has an account. Sign in instead.");
-          setLoading(false);
-          return;
-        }
-        const { error: insertError } = await supabase
-          .from("users")
-          .insert([{ email: cleaned, analyze_count: 0, is_pro: false }]);
-        if (insertError) {
-          setError("Could not create account. Try a different email.");
-          setLoading(false);
-          return;
-        }
-        onSignIn({ email: cleaned, analyze_count: 0, is_pro: false });
+        const { data, error: signUpError } = await supabase.auth.signUp({ email: email.trim(), password });
+        if (signUpError) { setError(signUpError.message); setLoading(false); return; }
+        // Also create user record in our users table
+        await supabase.from("users").insert([{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }]);
+        setSuccess("Account created! You are now signed in.");
+        setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }), 1000);
       } else {
-        if (!existing) {
-          setError("No account found. Sign up first.");
-          setLoading(false);
-          return;
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (signInError) { setError("Incorrect email or password. Try again."); setLoading(false); return; }
+        // Load user data
+        const { data: userData } = await supabase.from("users").select("email, analyze_count, is_pro").eq("email", email.trim().toLowerCase()).maybeSingle();
+        if (!userData) {
+          await supabase.from("users").insert([{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }]);
+          onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false });
+        } else {
+          onSignIn(userData);
         }
-        onSignIn(existing);
       }
     } catch (err) {
       setError("Something went wrong. Please try again.");
@@ -570,54 +594,65 @@ function SignInScreen({ onSignIn, onBack }) {
       <div style={{ background: NAVY, padding: "16px 20px 28px" }}>
         <div style={{ maxWidth: 480, margin: "0 auto" }}>
           <button onClick={onBack} style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 13, cursor: "pointer", padding: 0, fontFamily: FONT, marginBottom: 14, display: "block" }}>← Back</button>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>FairWheels</div>
-          <div style={{ fontSize: 12, color: "#93c5fd", marginTop: 3 }}>Know if your car deal is fair</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "2px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em" }}>FairWheels</div>
+              <div style={{ fontSize: 11, color: "#93c5fd", marginTop: 2 }}>Your car deal analyzer</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: "28px 20px", width: "100%", boxSizing: "border-box", flex: 1 }}>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 12, padding: 4, marginBottom: 24 }}>
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 20px", width: "100%", boxSizing: "border-box", flex: 1 }}>
+        {/* Tab switcher */}
+        <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 12, padding: 4, marginBottom: 22 }}>
           {[["signin", "Sign in"], ["signup", "Create account"]].map(([id, label]) => (
-            <button key={id} onClick={() => { setTab(id); setError(""); }}
-              style={{ flex: 1, padding: "10px 8px", background: tab === id ? "#fff" : "none", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, color: tab === id ? NAVY : "#6b7280", cursor: "pointer", fontFamily: FONT, boxShadow: tab === id ? "0 1px 3px rgba(0,0,0,0.1)" : "none", transition: "all 0.15s" }}>
+            <button key={id} onClick={() => { setTab(id); setError(""); setSuccess(""); }}
+              style={{ flex: 1, padding: "10px 8px", background: tab === id ? "#fff" : "none", border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700, color: tab === id ? NAVY : "#6b7280", cursor: "pointer", fontFamily: FONT, boxShadow: tab === id ? "0 1px 4px rgba(0,0,0,0.1)" : "none", transition: "all 0.15s" }}>
               {label}
             </button>
           ))}
         </div>
 
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "24px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#111827", marginBottom: 6 }}>
+          {/* Profile icon */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#eff6ff", border: "2px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#111827", marginBottom: 4, textAlign: "center" }}>
             {tab === "signin" ? "Welcome back" : "Create your account"}
           </div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20, lineHeight: 1.6 }}>
-            {tab === "signin" ? "Enter your email to access your analyses and deal history." : "Enter your email to get 2 free deal analyses. No password needed."}
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 22, lineHeight: 1.6, textAlign: "center" }}>
+            {tab === "signin" ? "Sign in to access your deals and history." : "Create a free account to save your analyses."}
           </div>
 
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: "0.07em", display: "block", marginBottom: 6 }}>Email address</label>
-          <div style={{ display: "flex", alignItems: "center", border: `2px solid ${error ? "#fca5a5" : focused ? BLUE : "#e5e7eb"}`, borderRadius: 10, background: error ? "#fef2f2" : focused ? "#f0f7ff" : "#fff", transition: "all 0.15s", marginBottom: 8 }}>
-            <input
-              type="email"
-              value={email}
-              onChange={e => { setEmail(e.target.value); setError(""); }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              onKeyDown={e => e.key === "Enter" && handleSubmit()}
-              placeholder="you@example.com"
-              style={{ flex: 1, border: "none", outline: "none", padding: "13px 14px", fontSize: 15, fontFamily: FONT, background: "transparent", color: "#111827" }}
-            />
-          </div>
-          {error && <div style={{ color: "#dc2626", fontSize: 12, marginBottom: 10, fontFamily: FONT }}>⚠ {error}</div>}
+          <InputField label="Email address" type="email" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} placeholder="you@example.com" />
+          <InputField label="Password" type="password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }} placeholder={tab === "signup" ? "At least 6 characters" : "Your password"} showToggle onToggle={() => setShowPw(!showPw)} showPw={showPw} error={error} />
+
+          {success && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>✓ {success}</div>}
 
           <button onClick={handleSubmit} disabled={loading}
-            style={{ width: "100%", padding: 14, background: loading ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", fontFamily: FONT, marginTop: 4 }}>
+            style={{ width: "100%", padding: 14, background: loading ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", fontFamily: FONT }}>
             {loading ? "Please wait..." : tab === "signin" ? "Sign in →" : "Create account →"}
           </button>
         </div>
 
-        <div style={{ marginTop: 16, background: "#eff6ff", borderRadius: 12, border: "1px solid #bfdbfe", padding: "13px 16px" }}>
-          <div style={{ fontSize: 12, color: "#1e40af", lineHeight: 1.6 }}>
-            🔒 We never spam you or sell your data. Your email is only used to track your free analyses and save your history.
+        <div style={{ marginTop: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e5e7eb", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
+            Your password is encrypted and stored securely. We never see it. Your data is never sold or shared.
           </div>
         </div>
       </div>
@@ -696,6 +731,75 @@ export default function FairWheels() {
   const body = { maxWidth: 480, margin: "0 auto", padding: "16px 14px", width: "100%", boxSizing: "border-box", flex: 1 };
 
   if (view === "signin") return <SignInScreen onSignIn={handleSignIn} onBack={() => { setPendingAnalyze(false); go("home"); }} />;
+
+  if (view === "profile") return (
+    <div style={{ fontFamily: FONT, background: "#f8fafc", minHeight: "100%", display: "flex", flexDirection: "column" }}>
+      <NavBar title="My account" sub={user?.email} onBack={() => go("home")} backLabel="Back" right={isPro ? <ProBadge /> : null} />
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 16px", width: "100%", boxSizing: "border-box", flex: 1 }}>
+
+        {/* Avatar */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#eff6ff", border: "3px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>{user?.email}</div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>{isPro ? "Pro member" : "Free plan"}</div>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 13, border: "1px solid #e5e7eb", padding: "14px", textAlign: "center" }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: NAVY, fontFamily: MONO }}>{analyzeCount}</div>
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3 }}>Deals analyzed</div>
+          </div>
+          <div style={{ background: "#fff", borderRadius: 13, border: "1px solid #e5e7eb", padding: "14px", textAlign: "center" }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: isPro ? "#d97706" : "#374151", fontFamily: MONO }}>{isPro ? "Pro" : "Free"}</div>
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3 }}>Current plan</div>
+          </div>
+        </div>
+
+        {!isPro && (
+          <div style={{ background: NAVY, borderRadius: 14, padding: "18px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", marginBottom: 3 }}>Upgrade to Pro</div>
+              <div style={{ fontSize: 12, color: "#93c5fd" }}>Unlimited analyses · $5.99/mo</div>
+            </div>
+            <button onClick={() => setShowUpgrade(true)} style={{ background: "#fff", color: NAVY, border: "none", borderRadius: 9, padding: "9px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: FONT, flexShrink: 0 }}>
+              Upgrade
+            </button>
+          </div>
+        )}
+
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", overflow: "hidden", marginBottom: 16 }}>
+          {[
+            { label: "View deal history", action: () => go("history"), icon: "📋" },
+            { label: "How it works", action: () => go("how"), icon: "❓" },
+            { label: "About FairWheels", action: () => go("about"), icon: "ℹ️" },
+          ].map(({ label, action, icon }, i, arr) => (
+            <div key={label} onClick={action} style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderBottom: i < arr.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+              <span style={{ fontSize: 16 }}>{icon}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#111827", flex: 1 }}>{label}</span>
+              <span style={{ color: "#d1d5db", fontSize: 16 }}>›</span>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={async () => {
+          await supabase.auth.signOut();
+          setUser(null);
+          setIsPro(false);
+          setAnalyzeCount(0);
+          setHistory([]);
+          go("home");
+        }} style={{ width: "100%", padding: 13, background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>
+          Sign out
+        </button>
+      </div>
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} onSuccess={handleUpgradeSuccess} />}
+    </div>
+  );
   if (view === "compare") return <CompareView history={history} onBack={() => go("history")} />;
   if (view === "about") return (
     <div style={base}>
@@ -726,6 +830,17 @@ export default function FairWheels() {
             {history.length > 0 && (
               <button onClick={() => go("history")} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "#93c5fd", fontSize: 11, padding: "6px 11px", cursor: "pointer", fontFamily: FONT }}>
                 {history.length} saved
+              </button>
+            )}
+            {user ? (
+              <button onClick={() => go("profile")} style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "2px solid rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+              </button>
+            ) : (
+              <button onClick={() => go("signin")} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer", fontFamily: FONT }}>
+                Sign in
               </button>
             )}
           </div>
