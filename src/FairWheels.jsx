@@ -5,8 +5,7 @@ const MONO = "'DM Mono', 'Courier New', monospace";
 const NAVY = "#0A2540";
 const BLUE = "#1E6FD9";
 const FREE_LIMIT = 2;
-const STRIPE_LINK = "https://buy.stripe.com/https://buy.stripe.com/28EbJ13Pfh1u5IW99Casg01";
-
+const STRIPE_LINK = "https://buy.stripe.com/28EbJ13Pfh1u5IW99Casg01";
 const parse = (v) => parseFloat(v) || 0;
 const fmt = (n) => "$" + Math.round(n).toLocaleString("en-US");
 const fmtDec = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
