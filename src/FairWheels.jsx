@@ -596,7 +596,7 @@ function SignInScreen({ onSignIn, onBack }) {
       if (!lastName.trim()) { setError("Enter your last name"); return false; }
     }
     if (!email || !email.includes("@")) { setError("Enter a valid email address"); return false; }
-    if (!password || password.length < 6) { setError("Password must be at least 6 characters"); return false; }
+    if (!password || password.length < 8) { setError("Password must be at least 6 characters"); return false; }
     if (tab === "signup" && password !== confirmPassword) { setError("Passwords do not match"); return false; }
     return true;
   };
