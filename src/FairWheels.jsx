@@ -543,18 +543,61 @@ function InputField({ label, type, value, onChange, placeholder, error, showTogg
   );
 }
 
+function PasswordStrength({ password }) {
+  if (!password) return null;
+  const checks = [
+    { label: "8+ characters", pass: password.length >= 8 },
+    { label: "Uppercase letter", pass: /[A-Z]/.test(password) },
+    { label: "Number", pass: /[0-9]/.test(password) },
+    { label: "Special character", pass: /[^A-Za-z0-9]/.test(password) },
+  ];
+  const score = checks.filter(c => c.pass).length;
+  const strength = score <= 1 ? { label: "Weak", color: "#dc2626", bg: "#fef2f2" }
+    : score === 2 ? { label: "Fair", color: "#d97706", bg: "#fffbeb" }
+    : score === 3 ? { label: "Good", color: "#2563eb", bg: "#eff6ff" }
+    : { label: "Strong", color: "#16a34a", bg: "#f0fdf4" };
+  return (
+    <div style={{ marginTop: -8, marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+        {[1,2,3,4].map(i => (
+          <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: i <= score ? strength.color : "#e5e7eb", transition: "background 0.2s" }} />
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {checks.map(c => (
+            <span key={c.label} style={{ fontSize: 10, color: c.pass ? "#16a34a" : "#9ca3af", fontFamily: FONT, display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 10 }}>{c.pass ? "✓" : "○"}</span>{c.label}
+            </span>
+          ))}
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: strength.color, fontFamily: FONT, background: strength.bg, padding: "2px 8px", borderRadius: 99, flexShrink: 0 }}>{strength.label}</span>
+      </div>
+    </div>
+  );
+}
+
 function SignInScreen({ onSignIn, onBack }) {
   const [tab, setTab] = useState("signin");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const validate = () => {
+    if (tab === "signup") {
+      if (!firstName.trim()) { setError("Enter your first name"); return false; }
+      if (!lastName.trim()) { setError("Enter your last name"); return false; }
+    }
     if (!email || !email.includes("@")) { setError("Enter a valid email address"); return false; }
     if (!password || password.length < 6) { setError("Password must be at least 6 characters"); return false; }
+    if (tab === "signup" && password !== confirmPassword) { setError("Passwords do not match"); return false; }
     return true;
   };
 
@@ -576,12 +619,13 @@ function SignInScreen({ onSignIn, onBack }) {
           return;
         }
         // Create user record — ignore duplicate errors
+        const fullName = `${firstName.trim()} ${lastName.trim()}`;
         await supabase.from("users").upsert(
-          [{ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }],
+          [{ email: email.trim().toLowerCase(), first_name: firstName.trim(), last_name: lastName.trim(), full_name: fullName, analyze_count: 0, is_pro: false }],
           { onConflict: "email", ignoreDuplicates: true }
         );
         setSuccess("Account created! Signing you in...");
-        setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), analyze_count: 0, is_pro: false }), 800);
+        setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), first_name: firstName.trim(), last_name: lastName.trim(), full_name: fullName, analyze_count: 0, is_pro: false }), 800);
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (signInError) {
@@ -590,9 +634,9 @@ function SignInScreen({ onSignIn, onBack }) {
           return;
         }
         // Load existing user data from our table
-          const { data: userData } = await supabase
+        const { data: userData, error: fetchError } = await supabase
           .from("users")
-          .select("email, analyze_count, is_pro")
+          .select("email, first_name, last_name, full_name, analyze_count, is_pro")
           .eq("email", email.trim().toLowerCase())
           .maybeSingle();
 
@@ -660,8 +704,19 @@ function SignInScreen({ onSignIn, onBack }) {
             {tab === "signin" ? "Sign in to access your deals and history." : "Create a free account to save your analyses."}
           </div>
 
+          {tab === "signup" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+              <InputField label="First name" type="text" value={firstName} onChange={e => { setFirstName(e.target.value); setError(""); }} placeholder="Aaron" />
+              <InputField label="Last name" type="text" value={lastName} onChange={e => { setLastName(e.target.value); setError(""); }} placeholder="Smith" />
+            </div>
+          )}
           <InputField label="Email address" type="email" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} placeholder="you@example.com" />
-          <InputField label="Password" type="password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }} placeholder={tab === "signup" ? "At least 6 characters" : "Your password"} showToggle onToggle={() => setShowPw(!showPw)} showPw={showPw} error={error} />
+          <InputField label="Password" type="password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }} placeholder={tab === "signup" ? "Create a password" : "Your password"} showToggle onToggle={() => setShowPw(!showPw)} showPw={showPw} />
+          {tab === "signup" && <PasswordStrength password={password} />}
+          {tab === "signup" && (
+            <InputField label="Confirm password" type="password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); setError(""); }} placeholder="Repeat your password" showToggle onToggle={() => setShowConfirmPw(!showConfirmPw)} showPw={showConfirmPw} error={confirmPassword && password !== confirmPassword ? "Passwords do not match" : ""} />
+          )}
+          
 
           {success && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>✓ {success}</div>}
 
@@ -707,7 +762,7 @@ export default function FairWheels() {
       if (session?.user?.email) {
         const { data: userData } = await supabase
           .from("users")
-          .select("email, analyze_count, is_pro")
+          .select("email, first_name, last_name, full_name, analyze_count, is_pro")
           .eq("email", session.user.email.toLowerCase())
           .maybeSingle();
         if (userData) {
@@ -782,12 +837,19 @@ export default function FairWheels() {
         {/* Avatar */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
           <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#eff6ff", border: "3px solid #bfdbfe", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
+            {user?.first_name ? (
+              <div style={{ fontSize: 28, fontWeight: 800, color: BLUE }}>{user.first_name[0]}{user.last_name?.[0] || ""}</div>
+            ) : (
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+            )}
           </div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>{user?.email}</div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>{isPro ? "Pro member" : "Free plan"}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#111827" }}>
+            {user?.full_name || user?.email}
+          </div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 3 }}>{user?.email}</div>
+          <div style={{ fontSize: 12, color: isPro ? "#d97706" : "#6b7280", marginTop: 2, fontWeight: 600 }}>{isPro ? "★ Pro member" : "Free plan"}</div>
         </div>
 
         {/* Stats */}
@@ -875,10 +937,19 @@ export default function FairWheels() {
               </button>
             )}
             {user ? (
-              <button onClick={() => go("profile")} style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "2px solid rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                </svg>
+              <button onClick={() => go("profile")} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, background: "none", border: "none", cursor: "pointer" }}>
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "2px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {user.first_name ? (
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{user.first_name[0]}{user.last_name?.[0] || ""}</span>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  )}
+                </div>
+                <span style={{ fontSize: 9, color: "#93c5fd", fontFamily: FONT, fontWeight: 600, whiteSpace: "nowrap" }}>
+                  Hi, {user.first_name || "there"}
+                </span>
               </button>
             ) : (
               <button onClick={() => go("signin")} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer", fontFamily: FONT }}>
