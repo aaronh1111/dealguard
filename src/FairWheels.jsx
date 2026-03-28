@@ -590,7 +590,7 @@ function SignInScreen({ onSignIn, onBack }) {
           return;
         }
         // Load existing user data from our table
-        const { data: userData, error: fetchError } = await supabase
+          const { data: userData } = await supabase
           .from("users")
           .select("email, analyze_count, is_pro")
           .eq("email", email.trim().toLowerCase())
