@@ -624,8 +624,7 @@ function SignInScreen({ onSignIn, onBack }) {
           [{ email: email.trim().toLowerCase(), first_name: firstName.trim(), last_name: lastName.trim(), full_name: fullName, analyze_count: 0, is_pro: false }],
           { onConflict: "email", ignoreDuplicates: true }
         );
-        setSuccess("Account created! Signing you in...");
-        setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), first_name: firstName.trim(), last_name: lastName.trim(), full_name: fullName, analyze_count: 0, is_pro: false }), 800);
+        setSuccess("CHECK_EMAIL");
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (signInError) {
@@ -718,12 +717,38 @@ function SignInScreen({ onSignIn, onBack }) {
           )}
           
 
-          {success && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>✓ {success}</div>}
+          {success === "CHECK_EMAIL" ? (
+            <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Check your email!</div>
+              <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.7, marginBottom: 16 }}>
+                We sent a confirmation link to<br/>
+                <strong style={{ color: "#111827" }}>{email}</strong>
+              </div>
+              <div style={{ background: "#eff6ff", borderRadius: 10, padding: "12px 14px", marginBottom: 16, textAlign: "left" }}>
+                <div style={{ fontSize: 12, color: "#1e40af", lineHeight: 1.6 }}>
+                  1. Open the email from FairWheels<br/>
+                  2. Click the confirmation link<br/>
+                  3. Come back here and sign in
+                </div>
+              </div>
+              <button onClick={() => { setTab("signin"); setSuccess(""); setPassword(""); setConfirmPassword(""); }} style={{ width: "100%", padding: 13, background: NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FONT }}>
+                Go to sign in →
+              </button>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
+                Didn't get it? Check your spam folder.
+              </div>
+            </div>
+          ) : success ? (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>✓ {success}</div>
+          ) : null}
 
+          {success !== "CHECK_EMAIL" && (
           <button onClick={handleSubmit} disabled={loading}
             style={{ width: "100%", padding: 14, background: loading ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", fontFamily: FONT }}>
             {loading ? "Please wait..." : tab === "signin" ? "Sign in →" : "Create account →"}
           </button>
+          )}
         </div>
 
         <div style={{ marginTop: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e5e7eb", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: 10 }}>
