@@ -639,9 +639,7 @@ function SignInScreen({ onSignIn, onBack }) {
           { onConflict: "email" }
         );
         if (upsertError) console.error("Upsert error:", upsertError.message);
-        const fullNameForSignIn = `${firstName.trim()} ${lastName.trim()}`;
-        setSuccess("done");
-        setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), first_name: firstName.trim(), last_name: lastName.trim(), full_name: fullNameForSignIn, analyze_count: 0, is_pro: false }), 600);
+        setSuccess("CHECK_EMAIL");
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (signInError) {
@@ -775,25 +773,45 @@ function SignInScreen({ onSignIn, onBack }) {
             </div>
           ) : (
             <div>
-              {success === "done" && (
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>
-                  ✓ Account created! Signing you in...
+              {success === "CHECK_EMAIL" ? (
+                <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>📧</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", marginBottom: 8 }}>Check your email!</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.7, marginBottom: 16 }}>
+                    We sent a confirmation link to<br/>
+                    <strong style={{ color: "#111827" }}>{email}</strong>
+                  </div>
+                  <div style={{ background: "#eff6ff", borderRadius: 10, padding: "12px 14px", marginBottom: 16, textAlign: "left" }}>
+                    <div style={{ fontSize: 12, color: "#1e40af", lineHeight: 1.7 }}>
+                      1. Open the email from FairWheels<br/>
+                      2. Click the confirmation link<br/>
+                      3. Come back here and sign in
+                    </div>
+                  </div>
+                  <button onClick={() => { setTab("signin"); setSuccess(""); setPassword(""); setConfirmPassword(""); }}
+                    style={{ width: "100%", padding: 13, background: NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FONT }}>
+                    Go to sign in →
+                  </button>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 10 }}>Didn't get it? Check your spam folder.</div>
+                </div>
+              ) : (
+                <div>
+                  {success && (
+                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>
+                      ✓ {success}
+                    </div>
+                  )}
+                  {error && (
+                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#dc2626", fontFamily: FONT, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ flexShrink: 0 }}>⚠</span> {error}
+                    </div>
+                  )}
+                  <button onClick={handleSubmit} disabled={loading}
+                    style={{ width: "100%", padding: 14, background: loading ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", fontFamily: FONT }}>
+                    {loading ? "Please wait..." : tab === "signin" ? "Sign in →" : "Create account →"}
+                  </button>
                 </div>
               )}
-              {success && success !== "done" && (
-                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>
-                  ✓ {success}
-                </div>
-              )}
-              {error && (
-                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#dc2626", fontFamily: FONT, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ flexShrink: 0 }}>⚠</span> {error}
-                </div>
-              )}
-              <button onClick={handleSubmit} disabled={loading || success === "done"}
-                style={{ width: "100%", padding: 14, background: loading || success === "done" ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading || success === "done" ? "not-allowed" : "pointer", fontFamily: FONT }}>
-                {loading ? "Please wait..." : tab === "signin" ? "Sign in →" : "Create account →"}
-              </button>
             </div>
           )}
         </div>
