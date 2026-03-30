@@ -634,10 +634,11 @@ function SignInScreen({ onSignIn, onBack }) {
         }
         // Create user record — ignore duplicate errors
         const fullName = `${firstName.trim()} ${lastName.trim()}`;
-        await supabase.from("users").upsert(
+        const { error: upsertError } = await supabase.from("users").upsert(
           [{ email: email.trim().toLowerCase(), first_name: firstName.trim(), last_name: lastName.trim(), full_name: fullName, analyze_count: 0, is_pro: false }],
-          { onConflict: "email", ignoreDuplicates: true }
+          { onConflict: "email" }
         );
+        if (upsertError) console.error("Upsert error:", upsertError.message);
         const fullNameForSignIn = `${firstName.trim()} ${lastName.trim()}`;
         setSuccess("done");
         setTimeout(() => onSignIn({ email: email.trim().toLowerCase(), first_name: firstName.trim(), last_name: lastName.trim(), full_name: fullNameForSignIn, analyze_count: 0, is_pro: false }), 600);
@@ -845,6 +846,27 @@ export default function FairWheels() {
     });
   }, []);
 
+  // Refresh user data from DB every time window gets focus (catches Pro status after Stripe payment)
+  useEffect(() => {
+    const refreshUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("email, first_name, last_name, full_name, analyze_count, is_pro")
+          .eq("email", session.user.email.toLowerCase())
+          .maybeSingle();
+        if (userData) {
+          setUser(userData);
+          setAnalyzeCount(userData.analyze_count || 0);
+          setIsPro(userData.is_pro || false);
+        }
+      }
+    };
+    window.addEventListener("focus", refreshUser);
+    return () => window.removeEventListener("focus", refreshUser);
+  }, []);
+
   useEffect(() => {
     if (user) {
       setAnalyzeCount(user.analyze_count || 0);
@@ -895,7 +917,15 @@ export default function FairWheels() {
     doAnalyze();
   };
 
-  const handleUpgradeSuccess = () => { setIsPro(true); setShowUpgrade(false); };
+  const handleUpgradeSuccess = async () => {
+    setIsPro(true);
+    setShowUpgrade(false);
+    // Save Pro status to Supabase so it persists after refresh
+    if (user?.email) {
+      await supabase.from("users").update({ is_pro: true }).eq("email", user.email);
+      setUser(prev => ({ ...prev, is_pro: true }));
+    }
+  };
 
   const base = { fontFamily: FONT, background: "#f8fafc", minHeight: "100%", display: "flex", flexDirection: "column" };
   const body = { maxWidth: 480, margin: "0 auto", padding: "16px 14px", width: "100%", boxSizing: "border-box", flex: 1 };
