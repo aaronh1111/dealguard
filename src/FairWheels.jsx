@@ -17,8 +17,8 @@ const fmt = (n) => "$" + Math.round(n).toLocaleString("en-US");
 const fmtDec = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (a, b) => Math.round((a / b) * 100);
 
-function calcDeal(price, fees, apr, term) {
-  const loan = price + fees;
+function calcDeal(price, down, fees, apr, term) {
+  const loan = price - down + fees;
   const rate = apr / 100 / 12;
   const monthly = rate === 0 ? loan / term : loan * rate / (1 - Math.pow(1 + rate, -term));
   const total = monthly * term;
@@ -30,7 +30,7 @@ function calcDeal(price, fees, apr, term) {
   const tS = total / price <= 1.1 ? 100 : total / price <= 1.25 ? 72 : total / price <= 1.5 ? 45 : 20;
   const score = Math.round(0.30 * iS + 0.30 * aS + 0.20 * fS + 0.20 * tS);
   return {
-    price, fees, apr, term, monthly, total, interest, score,
+    price, down, fees, apr, term, monthly, total, interest, score,
     breakdown: [
       { label: "Interest burden", value: iS, weight: "30%" },
       { label: "APR rate", value: aS, weight: "30%" },
@@ -62,8 +62,8 @@ function buildScript(deal) {
   ];
 }
 
-function buildAmortization(price, fees, apr, term) {
-  const loan = price + fees;
+function buildAmortization(price, down, fees, apr, term) {
+  const loan = price - down + fees;
   const rate = apr / 100 / 12;
   const monthly = rate === 0 ? loan / term : loan * rate / (1 - Math.pow(1 + rate, -term));
   let balance = loan;
@@ -589,6 +589,20 @@ function SignInScreen({ onSignIn, onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email || !email.includes("@")) { setError("Enter your email address first"); return; }
+    setLoading(true);
+    setError("");
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: "https://fairwheels-delta.vercel.app",
+    });
+    setLoading(false);
+    if (resetError) { setError("Could not send reset email. Try again."); return; }
+    setResetSent(true);
+  };
 
   const validate = () => {
     if (tab === "signup") {
@@ -714,29 +728,73 @@ function SignInScreen({ onSignIn, onBack }) {
             </div>
           )}
           <InputField label="Email address" type="email" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} placeholder="you@example.com" />
-          <InputField label="Password" type="password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }} placeholder={tab === "signup" ? "Create a password" : "Your password"} showToggle onToggle={() => setShowPw(!showPw)} showPw={showPw} />
+          <div>
+            <InputField label="Password" type="password" value={password} onChange={e => { setPassword(e.target.value); setError(""); }} placeholder={tab === "signup" ? "Create a password" : "Your password"} showToggle onToggle={() => setShowPw(!showPw)} showPw={showPw} />
+            {tab === "signin" && (
+              <div style={{ textAlign: "right", marginTop: -8, marginBottom: 14 }}>
+                <button onClick={() => { setForgotMode(true); setError(""); setSuccess(""); }} style={{ background: "none", border: "none", color: BLUE, fontSize: 12, cursor: "pointer", fontFamily: FONT, fontWeight: 600 }}>
+                  Forgot password?
+                </button>
+              </div>
+            )}
+          </div>
           {tab === "signup" && <PasswordStrength password={password} />}
           {tab === "signup" && (
             <InputField label="Confirm password" type="password" value={confirmPassword} onChange={e => { setConfirmPassword(e.target.value); setError(""); }} placeholder="Repeat your password" showToggle onToggle={() => setShowConfirmPw(!showConfirmPw)} showPw={showConfirmPw} error={confirmPassword && password !== confirmPassword ? "Passwords do not match" : ""} />
           )}
           
 
-          {success === "done" && (
-            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>
-              ✓ Account created! Signing you in...
+          {forgotMode ? (
+            <div>
+              {resetSent ? (
+                <div style={{ textAlign: "center", padding: "8px 0" }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>📬</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 6 }}>Check your inbox!</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6, marginBottom: 16 }}>
+                    We sent a password reset link to <strong style={{ color: "#111827" }}>{email}</strong>. Click the link to set a new password.
+                  </div>
+                  <button onClick={() => { setForgotMode(false); setResetSent(false); }} style={{ width: "100%", padding: 13, background: NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FONT }}>
+                    Back to sign in
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#111827", marginBottom: 6 }}>Reset your password</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16, lineHeight: 1.5 }}>Enter your email and we'll send you a reset link.</div>
+                  <InputField label="Email address" type="email" value={email} onChange={e => { setEmail(e.target.value); setError(""); }} placeholder="you@example.com" />
+                  {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#dc2626", fontFamily: FONT }}>⚠ {error}</div>}
+                  <button onClick={handleForgotPassword} disabled={loading} style={{ width: "100%", padding: 14, background: loading ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", fontFamily: FONT, marginBottom: 10 }}>
+                    {loading ? "Sending..." : "Send reset link →"}
+                  </button>
+                  <button onClick={() => { setForgotMode(false); setError(""); }} style={{ width: "100%", padding: 12, background: "#f3f4f6", color: "#6b7280", border: "none", borderRadius: 11, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
+                    Back to sign in
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              {success === "done" && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>
+                  ✓ Account created! Signing you in...
+                </div>
+              )}
+              {success && success !== "done" && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: "10px 12px", marginBottom: 12, fontSize: 13, color: "#16a34a", fontFamily: FONT }}>
+                  ✓ {success}
+                </div>
+              )}
+              {error && (
+                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#dc2626", fontFamily: FONT, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ flexShrink: 0 }}>⚠</span> {error}
+                </div>
+              )}
+              <button onClick={handleSubmit} disabled={loading || success === "done"}
+                style={{ width: "100%", padding: 14, background: loading || success === "done" ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading || success === "done" ? "not-allowed" : "pointer", fontFamily: FONT }}>
+                {loading ? "Please wait..." : tab === "signin" ? "Sign in →" : "Create account →"}
+              </button>
             </div>
           )}
-
-          {error && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#dc2626", fontFamily: FONT, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ flexShrink: 0 }}>⚠</span> {error}
-            </div>
-          )}
-
-          <button onClick={handleSubmit} disabled={loading || success === "done"}
-            style={{ width: "100%", padding: 14, background: loading || success === "done" ? "#94a3b8" : NAVY, color: "#fff", border: "none", borderRadius: 11, fontSize: 15, fontWeight: 800, cursor: loading || success === "done" ? "not-allowed" : "pointer", fontFamily: FONT }}>
-            {loading ? "Please wait..." : tab === "signin" ? "Sign in →" : "Create account →"}
-          </button>
         </div>
 
         <div style={{ marginTop: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e5e7eb", padding: "13px 16px", display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -753,7 +811,7 @@ function SignInScreen({ onSignIn, onBack }) {
 }
 
 export default function FairWheels() {
-  const [form, setForm] = useState({ price: "", fees: "", apr: "", term: "" });
+  const [form, setForm] = useState({ price: "", down: "", fees: "", apr: "", term: "" });
   const [errors, setErrors] = useState({});
   const [results, setResults] = useState(null);
   const [history, setHistory] = useState([]);
@@ -820,7 +878,7 @@ export default function FairWheels() {
   const doAnalyze = (currentUser) => {
     const u = currentUser || user;
     const newCount = (u.analyze_count || 0) + 1;
-    const deal = calcDeal(parse(form.price), parse(form.fees), parse(form.apr), parse(form.term));
+    const deal = calcDeal(parse(form.price), parse(form.down), parse(form.fees), parse(form.apr), parse(form.term));
     setResults(deal);
     setHistory(h => [deal, ...h]);
     setAnalyzeCount(newCount);
@@ -1000,6 +1058,9 @@ export default function FairWheels() {
           <Field label="Vehicle price" prefix="$" id="price" value={form.price}
             hint="Full purchase price" placeholder="35,000"
             onChange={e => setForm({ ...form, price: e.target.value })} error={errors.price} />
+          <Field label="Down payment" prefix="$" id="down" value={form.down}
+            hint="Cash + trade-in value" placeholder="0"
+            onChange={e => setForm({ ...form, down: e.target.value })} />
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: "0 10px" }}>
             <Field label="Dealer fees" prefix="$" id="fees" value={form.fees}
               hint="" placeholder="1,200"
@@ -1011,6 +1072,54 @@ export default function FairWheels() {
           <Field label="Loan term" suffix="months" id="term" value={form.term}
             hint="36–72 months" placeholder="60"
             onChange={e => setForm({ ...form, term: e.target.value })} error={errors.term} />
+
+          {/* Live payment preview */}
+          {form.price && form.apr && form.term && (() => {
+            const price = parse(form.price);
+            const down = parse(form.down);
+            const fees = parse(form.fees);
+            const apr = parse(form.apr);
+            const term = parse(form.term);
+            if (price > 0 && apr > 0 && term > 0) {
+              const loan = price - down + fees;
+              const rate = apr / 100 / 12;
+              const monthly = rate === 0 ? loan / term : loan * rate / (1 - Math.pow(1 + rate, -term));
+              const total = monthly * term;
+              return (
+                <div style={{ background: "#eff6ff", borderRadius: 12, padding: "14px 16px", marginBottom: 12, border: "1px solid #bfdbfe" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.06em" }}>Live preview</span>
+                    <span style={{ fontSize: 11, color: "#3b82f6" }}>updates as you type</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: NAVY, fontFamily: MONO }}>{fmtDec(monthly)}<span style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>/mo</span></div>
+                      <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>Loan: {fmt(loan)} · Total paid: {fmt(total)}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 11, color: "#6b7280" }}>Total interest</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#dc2626", fontFamily: MONO }}>{fmt(total - loan)}</div>
+                    </div>
+                  </div>
+                  {/* APR slider */}
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: "#1e40af", fontWeight: 600 }}>Drag to adjust APR</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: NAVY, fontFamily: MONO }}>{form.apr}%</span>
+                    </div>
+                    <input type="range" min="1" max="25" step="0.1" value={form.apr}
+                      onChange={e => setForm({ ...form, apr: e.target.value })}
+                      style={{ width: "100%", accentColor: NAVY, cursor: "pointer" }} />
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 10, color: "#9ca3af" }}>1%</span>
+                      <span style={{ fontSize: 10, color: "#9ca3af" }}>25%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <button onClick={analyze} style={{ width: "100%", padding: 14, background: NAVY, color: "#fff", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: FONT, marginTop: 4, letterSpacing: "-0.01em" }}>
             Analyze deal →
@@ -1043,14 +1152,14 @@ export default function FairWheels() {
   if (view === "result" && results) {
     const v = getVerdict(results.score);
     const script = isPro ? buildScript(results) : null;
-    const amortRows = isPro ? buildAmortization(results.price, results.fees, results.apr, results.term) : [];
+    const amortRows = isPro ? buildAmortization(results.price, results.down || 0, results.fees, results.apr, results.term) : [];
 
     return (
       <div style={base}>
         <NavBar
           title="Deal analysis"
           sub={results.date}
-          onBack={() => { setForm({ price: "", fees: "", apr: "", term: "" }); go("home"); }}
+          onBack={() => { setForm({ price: "", down: "", fees: "", apr: "", term: "" }); go("home"); }}
           backLabel="New deal"
           right={isPro ? <ProBadge /> : <button onClick={() => setShowUpgrade(true)} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 700, padding: "6px 12px", cursor: "pointer", fontFamily: FONT }}>Try Pro</button>}
           {...(isPro && { tabs: [["script", "Script"], ["amort", "Amortization"]], activeTab, onTab: setActiveTab })}
@@ -1176,13 +1285,13 @@ export default function FairWheels() {
             </div>
           )}
 
-          <button onClick={() => { setForm({ price: "", fees: "", apr: "", term: "" }); go("home"); }}
+          <button onClick={() => { setForm({ price: "", down: "", fees: "", apr: "", term: "" }); go("home"); }}
             style={{ width: "100%", padding: 13, background: NAVY, color: "#fff", border: "none", borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: FONT, marginBottom: 4 }}>
             Analyze another deal
           </button>
         </div>
 
-        <BottomNav active="home" onHome={() => { setForm({ price: "", fees: "", apr: "", term: "" }); go("home"); }} onAbout={() => go("about")} onHow={() => go("how")} />
+        <BottomNav active="home" onHome={() => { setForm({ price: "", down: "", fees: "", apr: "", term: "" }); go("home"); }} onAbout={() => go("about")} onHow={() => go("how")} />
         {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} onSuccess={handleUpgradeSuccess} />}
       </div>
     );
